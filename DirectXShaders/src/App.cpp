@@ -17,6 +17,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
+
+	case WM_SETFOCUS: // ウィンドウがフォーカスを得たとき
+		ShowCursor(FALSE); // カーソルを非表示
+		break;
+
+	case WM_KILLFOCUS: // ウィンドウがフォーカスを失ったとき
+		ShowCursor(TRUE); // カーソルを再表示
+		break;
+
 	case WM_KEYDOWN:
 		if(wParam == 27) PostQuitMessage(0); // escape
 		g_KeyStates[wParam] = true;
@@ -33,10 +42,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_MOUSEMOVE:
 	{
-		int xPos = GET_X_LPARAM(lParam);
-		int yPos = GET_Y_LPARAM(lParam);
+		RECT rect;
+		GetClientRect(hWnd, &rect);
+		//　画面の中央を取得
+		POINT center = { (rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2 };
+		ClientToScreen(hWnd, &center);
 
-		g_Scene->ProcessMouseMovement(xPos, yPos);
+		// 現在のマウスの位置
+		POINT currentPos;
+		GetCursorPos(&currentPos);
+
+		// マウスの移動量
+		int xOffset = currentPos.x - center.x;
+		int yOffset = currentPos.y - center.y;
+
+		g_Scene->ProcessMouseMovement(xOffset, yOffset);
+
+		SetCursorPos(center.x, center.y);
 		break;
 	}
 	

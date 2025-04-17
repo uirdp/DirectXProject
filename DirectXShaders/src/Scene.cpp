@@ -198,16 +198,13 @@ void Scene::Draw()
 	
 }
 
-void Scene::ProcessMouseMovement(int xPos, int yPos)
+void Scene::ProcessMouseMovement(int xOffset, int yOffset)
 {
 	static int lastX = WINDOW_WIDTH / 2;
 	static int lastY = WINDOW_HEIGHT / 2;
 
-	float xOffset = static_cast<float>(xPos - lastX);
-	float yOffset = static_cast<float>(yPos - lastY);
-
-	lastX = xPos;
-	lastY = yPos;
+	float xOffsetFloat = static_cast<float>(xOffset) ;
+	float yOffsetFloat = static_cast<float>(yOffset);
 
 	m_pCamera->ProcessMouseMovement(xOffset, yOffset);
 }
