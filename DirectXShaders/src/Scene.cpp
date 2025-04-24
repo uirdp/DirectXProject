@@ -29,6 +29,7 @@ std::wstring ReplaceExtension(const std::wstring& filename, const char* newExt)
 VertexBuffer* vertexBuffer;
 IndexBuffer* indexBuffer;
 ConstantBuffer* constantBuffer[Engine::FRAME_BUFFER_COUNT];
+ConstantBuffer* lightBuffer[Engine::FRAME_BUFFER_COUNT];
 RootSignature* rootSignature;
 PipelineState* pipelineState;
 DescriptorHeap* descriptorHeap;
@@ -85,6 +86,27 @@ bool Scene::Init()
 			return false;
 		}
 		indexBuffers.push_back(pIB);
+	}
+
+	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
+	{
+		lightBuffer[i] = new ConstantBuffer(sizeof(SceneData));
+		if (!lightBuffer[i]->IsValid())
+		{
+			printf("ライト用定数バッファの生成に失敗\n");
+			return false;
+		}
+	}
+
+	SceneData sceneData = {};
+	sceneData.Lights[0].Position = { 10.0f, 20.0f, 30.0f };
+	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
+	sceneData.LightCount = 2;
+
+	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
+	{
+		auto ptr = lightBuffer[i]->GetPtr<SceneData>();
+		*ptr = sceneData;
 	}
 
 	auto eyePos = XMVectorSet(0.0f, 120.0f, 75.0f, 0.0f);
@@ -185,6 +207,7 @@ void Scene::Draw()
 		commandList->SetPipelineState(pipelineState->Get());
 		// slot0にバインドされる
 		commandList->SetGraphicsRootConstantBufferView(0, constantBuffer[currentIndex]->GetAddress());
+	    commandList->SetGraphicsRootConstantBufferView(1, lightBuffer[currentIndex]->GetAddress());
 
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		commandList->IASetVertexBuffers(0, 1, &vbView);

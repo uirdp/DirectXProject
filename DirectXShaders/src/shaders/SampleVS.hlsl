@@ -21,6 +21,7 @@ struct VSOutput
     float3 normal : NORMAL;
     float4 color : COLOR;
     float2 uv : TEXCOORD;
+    float4 pos : TEXCOORD1;
 };
 
 VSOutput vert(VSInput input)
@@ -40,6 +41,7 @@ VSOutput vert(VSInput input)
     output.normal = normalize(worldNormal); // ワールドノーマルに変更する必要がある？
     output.color = input.color;
     output.uv = input.uv;
+    output.pos = projPos;
     
     return output;
 }

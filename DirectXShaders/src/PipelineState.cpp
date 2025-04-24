@@ -27,11 +27,22 @@ bool PipelineState::IsValid()
 
 void PipelineState::SetInputLayout(D3D12_INPUT_LAYOUT_DESC layout)
 {
+	if (!layout.pInputElementDescs || layout.NumElements == 0)
+	{
+		printf("入力レイアウトが無効です\n");
+		return;
+	}
 	desc.InputLayout = layout;
 }
 
 void PipelineState::SetRootSignature(ID3D12RootSignature* rootSignature)
 {
+	if (!rootSignature)
+	{
+		printf("ルートシグネチャが無効です\n");
+		return;
+	}
+
 	desc.pRootSignature = rootSignature;
 }
 
@@ -64,7 +75,7 @@ void PipelineState::Create()
 	auto hr = g_Engine->Device()->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(m_pPipelineState.GetAddressOf()));
 	if (FAILED(hr))
 	{
-		printf("パイプラインステートの生成に失敗\n");
+		printf("パイプラインステートの生成に失敗: HRESULT = 0x%08X\n", hr);
 		return;
 	}
 

@@ -33,4 +33,17 @@ struct Mesh
 	std::wstring DiffuseMapPath;
 };
 
+struct alignas(16) Light
+{
+	DirectX::XMFLOAT3 Position;
+	float Intensity;
+};
+
+struct alignas(256) SceneData
+{
+	Light Lights[4];
+	int LightCount;
+	float Padding[3];
+};
+
 

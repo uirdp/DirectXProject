@@ -10,8 +10,9 @@ RootSignature::RootSignature()
 	flag |= D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS; // ハルシェーダーのルートシグネチャへのアクセスを拒否する
 	flag |= D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS; // ジオメトリシェーダーのルートシグネチャへのアクセスを拒否する
 
-	CD3DX12_ROOT_PARAMETER rootParam[2] = {};
+	CD3DX12_ROOT_PARAMETER rootParam[3] = {};
 	rootParam[0].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL); 
+	rootParam[2].InitAsConstantBufferView(1, 0, D3D12_SHADER_VISIBILITY_ALL);
 
 	CD3DX12_DESCRIPTOR_RANGE range[1] = {};
 	range[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND); // SRVの範囲を定義
@@ -29,7 +30,7 @@ RootSignature::RootSignature()
 	ComPtr<ID3DBlob> pBlob;
 	ComPtr<ID3DBlob> pErrorBlob;
 
-	// バイナリ化
+	// バイナリ
 	auto hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, 
 											pBlob.GetAddressOf(), pErrorBlob.GetAddressOf());
 
