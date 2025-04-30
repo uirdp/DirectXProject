@@ -35,7 +35,7 @@ PipelineState* pipelineState;
 DescriptorHeap* descriptorHeap;
 std::vector<DescriptorHandle*> materialHandles;
 
-const wchar_t* modelFile = L"Assets/Alicia/FBX/Alicia_solid_Unity.FBX";
+const wchar_t* modelFile = L"Assets/128ball.fbx";
 std::vector<Mesh> meshes;
 std::vector<VertexBuffer*> vertexBuffers;
 std::vector<IndexBuffer*> indexBuffers;
@@ -88,11 +88,11 @@ bool Scene::Init()
 		indexBuffers.push_back(pIB);
 	}
 	SceneData sceneData = {};
-	sceneData.Lights[0].Position = { 10.0f, 20.0f, 30.0f };
+	sceneData.Lights[0].Position = { 1000.0f, 1000.0f, 1000.0f };
 	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
 	sceneData.Lights[2].Position = { 0.0f, 0.0f, 0.0f };
 	sceneData.Lights[3].Position = { 3.0f, 0.0f, 0.0f };
-	sceneData.LightCount = 2;
+	sceneData.LightCount = 1;
 
 	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
 	{
@@ -161,7 +161,7 @@ bool Scene::Init()
 	if (IsDebuggerPresent())
 	{
 		pipelineState->SetVertexShader(L"../x64/Debug/SampleVS.cso");
-		pipelineState->SetPixelShader(L"../x64/Debug/SamplePS.cso");
+		pipelineState->SetPixelShader(L"../x64/Debug/PBR.cso");
 	}
 	else
 	{
@@ -186,7 +186,7 @@ void Scene::Update()
 {
 	ProcessInput();
 
-	// rotateY += 0.02f;
+	rotateY += 0.02f;
 	auto currentIndex = g_Engine->CurrentBackBufferIndex();
 	auto currentTransform = constantBuffer[currentIndex]->GetPtr<Transform>();
 	currentTransform->World = XMMatrixRotationY(rotateY);
