@@ -35,40 +35,84 @@ DirectX::CXMMATRIX Camera::GetViewMatrix() const
 void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime)
 {
 	float velocity = m_MovementSpeed * deltaTime;
-	if (direction == FORWARD)
-		m_Position.z -= m_Front.z * velocity;
-	if (direction == BACKWARD)
-		m_Position.z += m_Front.z * velocity;
-	if (direction == LEFT)
-		m_Position.x += m_Right.x * velocity;
-	if (direction == RIGHT)
-		m_Position.x -= m_Right.x * velocity;
+	DirectX::XMVECTOR position = DirectX::XMLoadFloat3(&m_Position);
+	DirectX::XMVECTOR front = DirectX::XMLoadFloat3(&m_Front);
+	DirectX::XMVECTOR right = DirectX::XMLoadFloat3(&m_Right);
 
-	const float oneOverSqrt2 = 0.707; // 0.707 = 1/Å„2
+	if (direction == FORWARD)
+		position = DirectX::XMVectorSubtract(position, DirectX::XMVectorScale(front, velocity));
+	if (direction == BACKWARD)
+		position = DirectX::XMVectorAdd(position, DirectX::XMVectorScale(front, velocity));
+	if (direction == LEFT)
+		position = DirectX::XMVectorAdd(position, DirectX::XMVectorScale(right, velocity));
+	if (direction == RIGHT)
+		position = DirectX::XMVectorSubtract(position, DirectX::XMVectorScale(right, velocity));
+
+	const float oneOverSqrt2 = 0.707f; // 0.707 = 1/Å„2  
 	if (direction == FORWARD_LEFT)
 	{
-		m_Position.z -= m_Front.z * velocity * oneOverSqrt2;
-		m_Position.x += m_Right.x * velocity * oneOverSqrt2;
+		position = DirectX::XMVectorSubtract(position, DirectX::XMVectorScale(front, velocity * oneOverSqrt2));
+		position = DirectX::XMVectorAdd(position, DirectX::XMVectorScale(right, velocity * oneOverSqrt2));
 	}
 
 	if (direction == FORWARD_RIGHT)
 	{
-		m_Position.z -= m_Front.z * velocity * oneOverSqrt2;
-		m_Position.x -= m_Right.x * velocity * oneOverSqrt2;
+		position = DirectX::XMVectorSubtract(position, DirectX::XMVectorScale(front, velocity * oneOverSqrt2));
+		position = DirectX::XMVectorSubtract(position, DirectX::XMVectorScale(right, velocity * oneOverSqrt2));
 	}
 
 	if (direction == BACKWARD_LEFT)
 	{
-		m_Position.z += m_Front.z * velocity * oneOverSqrt2;
-		m_Position.x += m_Right.x * velocity * oneOverSqrt2;
+		position = DirectX::XMVectorAdd(position, DirectX::XMVectorScale(front, velocity * oneOverSqrt2));
+		position = DirectX::XMVectorAdd(position, DirectX::XMVectorScale(right, velocity * oneOverSqrt2));
 	}
 
 	if (direction == BACKWARD_RIGHT)
 	{
-		m_Position.z += m_Front.z * velocity * oneOverSqrt2;
-		m_Position.x -= m_Right.x * velocity * oneOverSqrt2;
+		position = DirectX::XMVectorAdd(position, DirectX::XMVectorScale(front, velocity * oneOverSqrt2));
+		position = DirectX::XMVectorSubtract(position, DirectX::XMVectorScale(right, velocity * oneOverSqrt2));
 	}
+
+	DirectX::XMStoreFloat3(&m_Position, position);
 }
+
+//void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime)
+//{
+//	float velocity = m_MovementSpeed * deltaTime;
+//	if (direction == FORWARD)
+//       
+//	if (direction == BACKWARD)
+//		m_Position.z += m_Front.z * velocity;
+//	if (direction == LEFT)
+//		m_Position.x += m_Right.x * velocity;
+//	if (direction == RIGHT)
+//		m_Position.x -= m_Right.x * velocity;
+//
+//	const float oneOverSqrt2 = 0.707; // 0.707 = 1/Å„2
+//	if (direction == FORWARD_LEFT)
+//	{
+//		m_Position.z -= m_Front.z * velocity * oneOverSqrt2;
+//		m_Position.x += m_Right.x * velocity * oneOverSqrt2;
+//	}
+//
+//	if (direction == FORWARD_RIGHT)
+//	{
+//		m_Position.z -= m_Front.z * velocity * oneOverSqrt2;
+//		m_Position.x -= m_Right.x * velocity * oneOverSqrt2;
+//	}
+//
+//	if (direction == BACKWARD_LEFT)
+//	{
+//		m_Position.z += m_Front.z * velocity * oneOverSqrt2;
+//		m_Position.x += m_Right.x * velocity * oneOverSqrt2;
+//	}
+//
+//	if (direction == BACKWARD_RIGHT)
+//	{
+//		m_Position.z += m_Front.z * velocity * oneOverSqrt2;
+//		m_Position.x -= m_Right.x * velocity * oneOverSqrt2;
+//	}
+//}
 
 void Camera::ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch)
 {

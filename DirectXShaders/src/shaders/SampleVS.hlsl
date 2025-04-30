@@ -38,10 +38,10 @@ VSOutput vert(VSInput input)
     float4 localNormal = float4(input.normal, 0.0);
     float4 worldNormal = mul(WorldInverseTranspose, localNormal);
     
-    output.normal = normalize(worldNormal); // ワールドノーマルに変更する必要がある？
+    output.normal = normalize(worldNormal); 
     output.color = input.color;
     output.uv = input.uv;
-    output.pos = projPos;
+    output.pos = worldPos;
     
     return output;
 }

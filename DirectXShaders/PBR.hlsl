@@ -26,8 +26,9 @@ float4 main(VSOutput input) : SV_TARGET
     for (int i = 0; i < LightCount; i++)
     {
         float3 lightDir = normalize(Lights[i].Position - input.pos.xyz);
-        float intensity = saturate(dot(input.normal, lightDir));
+        float intensity = -saturate(dot(input.normal, lightDir));
         color += intensity;
+
     }
 
     return float4(color, 1.0f);
