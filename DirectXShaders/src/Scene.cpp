@@ -90,6 +90,8 @@ bool Scene::Init()
 	SceneData sceneData = {};
 	sceneData.Lights[0].Position = { 10.0f, 20.0f, 30.0f };
 	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
+	sceneData.Lights[2].Position = { 0.0f, 0.0f, 0.0f };
+	sceneData.Lights[3].Position = { 3.0f, 0.0f, 0.0f };
 	sceneData.LightCount = 2;
 
 	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
@@ -102,9 +104,7 @@ bool Scene::Init()
 		}
 
 		auto ptr = lightBuffer[i]->GetPtr<SceneData>();
-		ptr->Lights[0].Position = sceneData.Lights[0].Position;
-		ptr->Lights[1].Position = sceneData.Lights[1].Position;
-		ptr->LightCount = 2;
+		*ptr = sceneData;
 	}
 
 
