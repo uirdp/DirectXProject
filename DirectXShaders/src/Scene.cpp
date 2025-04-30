@@ -87,6 +87,10 @@ bool Scene::Init()
 		}
 		indexBuffers.push_back(pIB);
 	}
+	SceneData sceneData = {};
+	sceneData.Lights[0].Position = { 10.0f, 20.0f, 30.0f };
+	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
+	sceneData.LightCount = 2;
 
 	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
 	{
@@ -96,18 +100,13 @@ bool Scene::Init()
 			printf("ライト用定数バッファの生成に失敗\n");
 			return false;
 		}
-	}
 
-	SceneData sceneData = {};
-	sceneData.Lights[0].Position = { 10.0f, 20.0f, 30.0f };
-	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
-	sceneData.LightCount = 2;
-
-	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
-	{
 		auto ptr = lightBuffer[i]->GetPtr<SceneData>();
-		*ptr = sceneData;
+		ptr->Lights[0].Position = sceneData.Lights[0].Position;
+		ptr->Lights[1].Position = sceneData.Lights[1].Position;
+		ptr->LightCount = 2;
 	}
+
 
 	auto eyePos = XMVectorSet(0.0f, 120.0f, 75.0f, 0.0f);
 	auto targetPos = XMVectorSet(0.0f, 120.0, 0.0, 0.0f);
@@ -158,8 +157,18 @@ bool Scene::Init()
 	pipelineState = new PipelineState();
 	pipelineState->SetInputLayout(Vertex::InputLayout);
 	pipelineState->SetRootSignature(rootSignature->Get());
-	pipelineState->SetVertexShader(L"../x64/Debug/SampleVS.cso");
-	pipelineState->SetPixelShader(L"../x64/Debug/PBR.cso");
+
+	if (IsDebuggerPresent())
+	{
+		pipelineState->SetVertexShader(L"../x64/Debug/SampleVS.cso");
+		pipelineState->SetPixelShader(L"../x64/Debug/PBR.cso");
+	}
+	else
+	{
+		pipelineState->SetVertexShader(L"SampleVS.cso");
+		pipelineState->SetPixelShader(L"PBR.cso");
+	}
+
 	pipelineState->Create();
 	if (!pipelineState->IsValid())
 	{
@@ -207,7 +216,7 @@ void Scene::Draw()
 		commandList->SetPipelineState(pipelineState->Get());
 		// slot0にバインドされる
 		commandList->SetGraphicsRootConstantBufferView(0, constantBuffer[currentIndex]->GetAddress());
-	    commandList->SetGraphicsRootConstantBufferView(1, lightBuffer[currentIndex]->GetAddress());
+	    commandList->SetGraphicsRootConstantBufferView(2, lightBuffer[currentIndex]->GetAddress());
 
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		commandList->IASetVertexBuffers(0, 1, &vbView);
