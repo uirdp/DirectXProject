@@ -41,9 +41,9 @@ struct alignas(16) Light
 
 struct alignas(256) SceneData
 {
-	Light Lights[4];
-	int LightCount;
-	float Padding[3];
+	Light Lights[4];               // 16バイト * 4
+	int LightCount;                // 4バイト
+	DirectX::XMFLOAT3 CameraPosition;    // 12バイト
 };
 
 

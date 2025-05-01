@@ -24,6 +24,7 @@ public:
 	void ProcessKeyboard(CameraMovement direction, float deltaTime);
 	void ProcessMouseMovement(float xOffset, float yOffset, bool constrainPitch = true);
 	void ProcessMouseScroll(float yOffset);
+	DirectX::XMFLOAT3 GetCameraPosition();
 
 private:
 	DirectX::XMFLOAT3 m_Position;

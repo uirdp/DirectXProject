@@ -29,7 +29,7 @@ std::wstring ReplaceExtension(const std::wstring& filename, const char* newExt)
 VertexBuffer* vertexBuffer;
 IndexBuffer* indexBuffer;
 ConstantBuffer* constantBuffer[Engine::FRAME_BUFFER_COUNT];
-ConstantBuffer* lightBuffer[Engine::FRAME_BUFFER_COUNT];
+ConstantBuffer* sceneBuffer[Engine::FRAME_BUFFER_COUNT];
 RootSignature* rootSignature;
 PipelineState* pipelineState;
 DescriptorHeap* descriptorHeap;
@@ -87,25 +87,7 @@ bool Scene::Init()
 		}
 		indexBuffers.push_back(pIB);
 	}
-	SceneData sceneData = {};
-	sceneData.Lights[0].Position = { 1000.0f, 1000.0f, 1000.0f };
-	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
-	sceneData.Lights[2].Position = { 0.0f, 0.0f, 0.0f };
-	sceneData.Lights[3].Position = { 3.0f, 0.0f, 0.0f };
-	sceneData.LightCount = 1;
-
-	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
-	{
-		lightBuffer[i] = new ConstantBuffer(sizeof(SceneData));
-		if (!lightBuffer[i]->IsValid())
-		{
-			printf("ライト用定数バッファの生成に失敗\n");
-			return false;
-		}
-
-		auto ptr = lightBuffer[i]->GetPtr<SceneData>();
-		*ptr = sceneData;
-	}
+	
 
 
 	auto eyePos = XMVectorSet(0.0f, 120.0f, 75.0f, 0.0f);
@@ -135,6 +117,27 @@ bool Scene::Init()
 		ptr->View = m_pCamera->GetViewMatrix();
 		ptr->Projection = XMMatrixPerspectiveFovRH(fov, aspect, 0.3f, 1000.0f);
 		ptr->WorldInvTranspose = XMMatrixIdentity();
+	}
+
+	SceneData sceneData = {};
+	sceneData.Lights[0].Position = { 1000.0f, 1000.0f, 1000.0f };
+	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
+	sceneData.Lights[2].Position = { 0.0f, 0.0f, 0.0f };
+	sceneData.Lights[3].Position = { 3.0f, 0.0f, 0.0f };
+	sceneData.LightCount = 1;
+	sceneData.CameraPosition = eyePos2;
+
+	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
+	{
+		sceneBuffer[i] = new ConstantBuffer(sizeof(SceneData));
+		if (!sceneBuffer[i]->IsValid())
+		{
+			printf("ライト用定数バッファの生成に失敗\n");
+			return false;
+		}
+
+		auto ptr = sceneBuffer[i]->GetPtr<SceneData>();
+		*ptr = sceneData;
 	}
 
 	descriptorHeap = new DescriptorHeap();
@@ -199,6 +202,9 @@ void Scene::Update()
 
 	currentTransform->Projection = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_pCamera->GetZoom()), 
 		static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT), 0.3f, 1000.0f);
+
+	auto currentScene = sceneBuffer[currentIndex]->GetPtr<SceneData>();
+	currentScene->CameraPosition = m_pCamera->GetCameraPosition();
 }
 
 void Scene::Draw()
@@ -216,7 +222,7 @@ void Scene::Draw()
 		commandList->SetPipelineState(pipelineState->Get());
 		// slot0にバインドされる
 		commandList->SetGraphicsRootConstantBufferView(0, constantBuffer[currentIndex]->GetAddress());
-	    commandList->SetGraphicsRootConstantBufferView(2, lightBuffer[currentIndex]->GetAddress());
+	    commandList->SetGraphicsRootConstantBufferView(2, sceneBuffer[currentIndex]->GetAddress());
 
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		commandList->IASetVertexBuffers(0, 1, &vbView);
