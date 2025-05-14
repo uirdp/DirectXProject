@@ -64,14 +64,44 @@ float GeometrySmith(float3 N, float3 V, float3 L, float roughness)
 
 float4 main(VSOutput input) : SV_TARGET
 {
-    float3 color = float3(0.0f, 0.0f, 0.0f);
+    float roughness = 0.5;
+    float metallic = 0.5;
+    float3 albedo = (0.2, 0.5, 0.3);
     
+    float3 N = normalize(input.normal);
+    float3 V = normalize(CameraPosition - input.pos.xyz);
+    
+    float3 F0 = float3(0.04, 0.04, 0.04);
+    F0 = lerp(F0, albedo, metallic);
+    
+    float3 Lo = float3(0, 0, 0);
     for (int i = 0; i < LightCount; i++)
     {
-        float3 lightDir = normalize(Lights[i].Position - input.pos.xyz);
-        float intensity = saturate(dot(input.normal, lightDir));
-        color += intensity;
+        float3 L = normalize(Lights[i].Position - input.pos.xyz);
+        float3 H = normalize(V + L);
+        
+        float NDF = DistributionGGX(N, H, roughness);
+        float G = GeometrySmith(N, V, L, roughness);
+        float3 F = FresnelSchlick(saturate(dot(H, V)), F0);
+        
+        float3 Ks = F;
+        float3 Kd = float3(1.0, 1.0, 1.0) - Ks;
+        Kd *= 1.0 - metallic;
+        
+        float esp = 1.0e-5;
+        float3 numerator = NDF * G * F;
+        float denominator = 4.0 * saturate(dot(N, V)) * saturate(dot(N, L)) + esp;
+        
+        float3 specular = numerator / denominator;
+        
+        float NdotL = saturate(dot(N, L));
+        Lo += (Kd * albedo / PI + specular) * NdotL;
     }
+    
+    float3 color = Lo;
+    color = color / (color + float3(1.0, 1.0, 1.0));
+    color = pow(color, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+    
+    return float4(color, 1.0);
 
-    return float4(color, 1.0f);
 }
