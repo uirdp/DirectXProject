@@ -22,6 +22,9 @@ cbuffer SceneData : register(b1)
     float3 CameraPosition;
 };
 
+SamplerState smp : register(s0);
+Texture2D _MainTex : register(t0);
+
 inline float3 FresnelSchlick(float cosTheta, float3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
@@ -98,9 +101,11 @@ float4 main(VSOutput input) : SV_TARGET
         Lo += (Kd * albedo / PI + specular) * NdotL;
     }
     
-    float3 color = Lo;
+    float3 color = Lo * _MainTex.Sample(smp, input.uv);
     color = color / (color + float3(1.0, 1.0, 1.0));
     color = pow(color, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
+    
+    // color = N * 0.5 + 0.5;
     
     return float4(color, 1.0);
 

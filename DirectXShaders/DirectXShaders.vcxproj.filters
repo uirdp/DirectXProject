@@ -124,6 +124,12 @@
     <FxCompile Include="PBR.hlsl">
       <Filter>ソース ファイル\shader</Filter>
     </FxCompile>
+    <FxCompile Include="src\shaders\SkyboxVS.hlsl">
+      <Filter>ソース ファイル\shader</Filter>
+    </FxCompile>
+    <FxCompile Include="src\shaders\SkyboxPS.hlsl">
+      <Filter>ソース ファイル\shader</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

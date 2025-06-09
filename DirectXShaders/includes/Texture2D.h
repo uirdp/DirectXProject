@@ -16,9 +16,11 @@ public:
 
 	ID3D12Resource* Resource();
 	D3D12_SHADER_RESOURCE_VIEW_DESC ViewDesc();
+	D3D12_SHADER_RESOURCE_VIEW_DESC ViewCubeMapDesc();
 
 private:
 	bool m_IsValid;
+	std::wstring extension;
 	Texture2D(std::string path);
 	Texture2D(std::wstring path);
 	Texture2D(ID3D12Resource* buffer);
@@ -27,6 +29,7 @@ private:
 	bool Load(std::wstring& path);
 
 	static ID3D12Resource* GetDefaultResource(size_t width, size_t height);
+	static ID3D12Resource* GetTextureCubeResource(size_t width, size_t height);
 
 	Texture2D(const Texture2D&) = delete;
 	void operator = (const Texture2D&) = delete;

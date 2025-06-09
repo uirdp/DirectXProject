@@ -28,14 +28,20 @@ std::wstring ReplaceExtension(const std::wstring& filename, const char* newExt)
 
 VertexBuffer* vertexBuffer;
 IndexBuffer* indexBuffer;
+VertexBuffer* skyboxVertexBuffer;
+IndexBuffer* skyboxIndexBuffer;
 ConstantBuffer* constantBuffer[Engine::FRAME_BUFFER_COUNT];
 ConstantBuffer* sceneBuffer[Engine::FRAME_BUFFER_COUNT];
+ConstantBuffer* skyboxBuffer[Engine::FRAME_BUFFER_COUNT];
 RootSignature* rootSignature;
 PipelineState* pipelineState;
+RootSignature* skyboxRootSignature;
+PipelineState* skyboxPipelineState;
 DescriptorHeap* descriptorHeap;
 std::vector<DescriptorHandle*> materialHandles;
+DescriptorHandle* skyboxHandle;
 
-const wchar_t* modelFile = L"Assets/128ball.fbx";
+const wchar_t* modelFile = L"Assets/Alicia/FBX/Alicia_solid_Unity.FBX";
 std::vector<Mesh> meshes;
 std::vector<VertexBuffer*> vertexBuffers;
 std::vector<IndexBuffer*> indexBuffers;
@@ -57,7 +63,7 @@ bool Scene::Init()
 		return false;
 	}
 
-	vertexBuffers.reserve(meshes.size()); // meshsのサイズ分だけメモリを確保
+	vertexBuffers.reserve(meshes.size()); // meshesのサイズ分だけメモリを確保
 	for (size_t i = 0; i < meshes.size(); ++i)
 	{
 		auto vertexSize = sizeof(Vertex) * meshes[i].Vertices.size();
@@ -74,7 +80,7 @@ bool Scene::Init()
 	}
 
 	// meshの数だけインデックスバッファを確保
-	indexBuffers.reserve(meshes.size()); // meshsの数だけメモリを確保
+	indexBuffers.reserve(meshes.size()); // meshesの数だけメモリを確保
 	for (size_t i = 0; i < meshes.size(); ++i)
 	{
 		auto indexSize = sizeof(uint32_t) * meshes[i].Indices.size(); // 一つのメッシュのインデックスバッファのサイズ
@@ -87,19 +93,16 @@ bool Scene::Init()
 		}
 		indexBuffers.push_back(pIB);
 	}
-	
 
-
-	auto eyePos = XMVectorSet(0.0f, 120.0f, 75.0f, 0.0f);
 	auto targetPos = XMVectorSet(0.0f, 120.0, 0.0, 0.0f);
 	auto upward = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	
 	auto aspect = static_cast<float>(WINDOW_WIDTH) / static_cast<float>(WINDOW_HEIGHT);
 
-	auto eyePos2 = XMFLOAT3(0.0f, 120.0f, 75.0f);
+	auto eyePos = XMFLOAT3(0.0f, 120.0f, 75.0f);
 	auto upward2 = XMFLOAT3(0.0f, 1.0f, 0.0f);
 
-	m_pCamera = new Camera(eyePos2, upward2, 90.0f, 0.0f);
+	m_pCamera = new Camera(eyePos, upward2, 0.0f, 0.0f);
 	auto fov = XMConvertToRadians(m_pCamera->GetZoom());
 
 	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
@@ -113,7 +116,7 @@ bool Scene::Init()
 
 		// mapされている
 		auto ptr = constantBuffer[i]->GetPtr<Transform>();
-		ptr->World = XMMatrixIdentity();
+        ptr->World = XMMatrixTranslation(0.0f, -60.0f, 0.0f) * XMMatrixRotationX(XMConvertToRadians(0.0f)) * XMMatrixScaling(2.0f, 2.0f, 2.0f);
 		ptr->View = m_pCamera->GetViewMatrix();
 		ptr->Projection = XMMatrixPerspectiveFovRH(fov, aspect, 0.3f, 1000.0f);
 		ptr->WorldInvTranspose = XMMatrixIdentity();
@@ -125,7 +128,7 @@ bool Scene::Init()
 	sceneData.Lights[2].Position = { 0.0f, 0.0f, 0.0f };
 	sceneData.Lights[3].Position = { 3.0f, 0.0f, 0.0f };
 	sceneData.LightCount = 1;
-	sceneData.CameraPosition = eyePos2;
+	sceneData.CameraPosition = eyePos;
 
 	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
 	{
@@ -149,6 +152,74 @@ bool Scene::Init()
 		auto handle = descriptorHeap->Register(mainTex);
 		materialHandles.push_back(handle);
 	}
+
+      VertexPositionOnly skyboxVertices[] = {
+		  {{-1.0f, -1.0f, -1.0f}}, // 0: 左下前
+		  {{ 1.0f, -1.0f, -1.0f}}, // 1: 右下前
+		  {{ 1.0f,  1.0f, -1.0f}}, // 2: 右上前
+		  {{-1.0f,  1.0f, -1.0f}}, // 3: 左上前
+		  {{-1.0f, -1.0f,  1.0f}}, // 4: 左下奥
+		  {{ 1.0f, -1.0f,  1.0f}}, // 5: 右下奥
+		  {{ 1.0f,  1.0f,  1.0f}}, // 6: 右上奥
+		  {{-1.0f,  1.0f,  1.0f}}, // 7: 左上奥
+        };
+
+	// 面の向きを内向きに反転（時計回り → 反時計回り）
+	uint32_t skyboxIndices[] = {
+		// 前面
+		0, 1, 2,  0, 2, 3,
+		// 右面
+		1, 5, 6,  1, 6, 2,
+		// 奥面
+		5, 4, 7,  5, 7, 6,
+		// 左面
+		4, 0, 3,  4, 3, 7,
+		// 上面
+		3, 2, 6,  3, 6, 7,
+		// 下面
+		4, 5, 1,  4, 1, 0
+	};
+
+	auto vertexSize = sizeof(VertexPositionOnly) * std::size(skyboxVertices);
+	auto vertexStride = sizeof(VertexPositionOnly);
+	skyboxVertexBuffer = new VertexBuffer(vertexSize, vertexStride, skyboxVertices);
+	if (!skyboxVertexBuffer->IsValid())
+	{
+		printf("スカイボックス用頂点バッファの生成に失敗\n");
+		return false;
+	}
+
+	auto indexSize = sizeof(uint32_t) * std::size(skyboxIndices);
+	skyboxIndexBuffer = new IndexBuffer(indexSize, skyboxIndices);
+	if (!skyboxIndexBuffer->IsValid())
+	{
+		printf("スカイボックス用インデックスバッファの生成に失敗\n");
+		return false;
+	}
+
+	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
+	{
+		skyboxBuffer[i] = new ConstantBuffer(sizeof(Transform));
+		if (!skyboxBuffer[i]->IsValid())
+		{
+			printf("定数バッファの生成に失敗\n");
+			return false;
+		}
+
+		// mapされている
+		auto ptr = skyboxBuffer[i]->GetPtr<Transform>();
+		ptr->World = XMMatrixIdentity() * XMMatrixScaling(500.0f, 500.0f, 500.0f);
+		ptr->View = m_pCamera->GetViewMatrix();
+		ptr->Projection = XMMatrixPerspectiveFovRH(fov, aspect, 0.3f, 1000.0f);
+		ptr->WorldInvTranspose = XMMatrixIdentity();
+	}
+
+	{
+		auto texPath = L"Assets/Texture/BrightSky.dds";
+		auto skyBox = Texture2D::Get(texPath);
+		skyboxHandle = descriptorHeap->Register(skyBox);
+	}
+	
 
 	rootSignature = new RootSignature();
 	if (!rootSignature->IsValid())
@@ -179,12 +250,41 @@ bool Scene::Init()
 		return false;
 	}
 
+	skyboxRootSignature = new RootSignature();
+	if (!skyboxRootSignature->IsValid())
+	{
+		printf("スカイボックス用のルートシグネチャの生成に失敗\n");
+	}
+
+	skyboxPipelineState = new PipelineState();
+	skyboxPipelineState->SetInputLayout(VertexPositionOnly::InputLayout);
+	skyboxPipelineState->SetRootSignature(skyboxRootSignature->Get());
+
+	if (IsDebuggerPresent())
+	{
+		skyboxPipelineState->SetVertexShader(L"../x64/Debug/SkyboxVS.cso");
+		skyboxPipelineState->SetPixelShader(L"../x64/Debug/SkyboxPS.cso");
+	}
+
+	else
+	{
+		skyboxPipelineState->SetVertexShader(L"SkyboxVS.cso");
+		skyboxPipelineState->SetPixelShader(L"SkyboxPS.cso");
+	}
+
+	skyboxPipelineState->Create();
+	if (!skyboxPipelineState->IsValid())
+	{
+		printf("スカイボックス用パイプラインステートの生成に失敗");
+	}
+
 	printf("シーンの初期化に成功\n");
 	return true;
 }
 
 
 float rotateY = 0.0f;
+float rotateX = 90.0f;
 void Scene::Update()
 {
 	ProcessInput();
@@ -192,7 +292,7 @@ void Scene::Update()
 	rotateY += 0.02f;
 	auto currentIndex = g_Engine->CurrentBackBufferIndex();
 	auto currentTransform = constantBuffer[currentIndex]->GetPtr<Transform>();
-	currentTransform->World = XMMatrixRotationY(rotateY);
+	// currentTransform->World = XMMatrixRotationY(rotateY);
 	currentTransform->WorldInvTranspose = XMMatrixTranspose(XMMatrixInverse(nullptr, currentTransform->World));
 	// View行列をデバッグ用に出力
 	XMFLOAT4X4 viewMatrix;
@@ -205,6 +305,10 @@ void Scene::Update()
 
 	auto currentScene = sceneBuffer[currentIndex]->GetPtr<SceneData>();
 	currentScene->CameraPosition = m_pCamera->GetCameraPosition();
+
+	auto currentSkybox = skyboxBuffer[currentIndex]->GetPtr<Transform>();
+	currentSkybox->View = m_pCamera->GetViewMatrix();
+	currentSkybox->View.r[3] = XMVectorSet(0, 0, 0, 1);
 }
 
 void Scene::Draw()
@@ -212,6 +316,24 @@ void Scene::Draw()
 	auto currentIndex = g_Engine->CurrentBackBufferIndex();
 	auto commandList = g_Engine->CommandList();
 	auto materialHeap = descriptorHeap->Get();
+
+	auto vbView = skyboxVertexBuffer->View();
+	auto ibView = skyboxIndexBuffer->View();
+
+	commandList->SetGraphicsRootSignature(skyboxRootSignature->Get());
+	commandList->SetPipelineState(skyboxPipelineState->Get());
+
+	commandList->SetGraphicsRootConstantBufferView(3, skyboxBuffer[currentIndex]->GetAddress());
+
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->IASetVertexBuffers(0, 1, &vbView);
+	commandList->IASetIndexBuffer(&ibView);
+
+	commandList->SetDescriptorHeaps(1, &materialHeap);
+	commandList->SetGraphicsRootDescriptorTable(1, skyboxHandle->HandleGPU);
+	
+	commandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
+
 
 	for (size_t i = 0; i < meshes.size(); i++)
 	{

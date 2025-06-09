@@ -18,6 +18,16 @@ private:
 	static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
 };
 
+struct VertexPositionOnly
+{
+public:
+	DirectX::XMFLOAT3 Position;
+	static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+private:
+	static const int InputElementCount = 1;
+	static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+};
+
 struct alignas(256) Transform
 {
 	DirectX::XMMATRIX World;

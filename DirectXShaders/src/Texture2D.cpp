@@ -72,12 +72,22 @@ bool Texture2D::Load(std::wstring& path)
 	{
 		hr = LoadFromTGAFile(path.c_str(), &metadata, scratchImg);
 	}
+	else if (ext == L".dds")
+	{
+		hr = LoadFromDDSFile(path.c_str(), DDS_FLAGS_NONE, &metadata, scratchImg);
+	}
+    else if (ext == L".hdr")
+    {
+		 hr = LoadFromHDRFile(path.c_str(), &metadata, scratchImg);
+    }
 
 	if (FAILED(hr))
 	{
 		printf("テクスチャの読み込みに失敗\n");
 		return false;
 	}
+
+	extension = ext;
 
 	auto img = scratchImg.GetImage(0, 0, 0);
 	auto prop = CD3DX12_HEAP_PROPERTIES(D3D12_CPU_PAGE_PROPERTY_WRITE_BACK, D3D12_MEMORY_POOL_L0);
@@ -100,6 +110,29 @@ bool Texture2D::Load(std::wstring& path)
 	{
 		printf("テクスチャのリソース作成に失敗aa\n");
 		return false;
+	}
+
+	if (ext == L".dds")
+	{
+		for (size_t item = 0; item < metadata.arraySize; ++item)
+		{
+			for (size_t mip = 0; mip < metadata.mipLevels; ++mip)
+			{
+				auto img = scratchImg.GetImage(mip, item, 0);
+				UINT subresource = D3D12CalcSubresource(
+					static_cast<UINT>(mip), static_cast<UINT>(item), 0,
+					static_cast<UINT>(metadata.mipLevels), static_cast<UINT>(metadata.arraySize)
+				);
+
+				HRESULT hr2 = m_pResource->WriteToSubresource(
+					subresource,
+					nullptr,
+					img->pixels,
+					static_cast<UINT>(img->rowPitch),
+					static_cast<UINT>(img->slicePitch)
+				);
+			}
+		}
 	}
 
 	hr = m_pResource->WriteToSubresource(
@@ -192,7 +225,29 @@ D3D12_SHADER_RESOURCE_VIEW_DESC Texture2D::ViewDesc()
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 	desc.Format = m_pResource->GetDesc().Format;
 	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	desc.Texture2D.MipLevels = 1;
+
+	// キューブマップかどうか判定
+	auto resDesc = m_pResource->GetDesc();
+	if (resDesc.DepthOrArraySize % 6 == 0 && resDesc.DepthOrArraySize >= 6)
+	{
+		desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+		desc.TextureCube.MipLevels = 1;
+	}
+	else
+	{
+		desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		desc.Texture2D.MipLevels = 1;
+	}
 	return desc;
 }
+
+D3D12_SHADER_RESOURCE_VIEW_DESC Texture2D::ViewCubeMapDesc()
+{
+	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+	desc.Format = m_pResource->GetDesc().Format;
+	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+	desc.TextureCube.MipLevels = 1;
+	return desc;
+}
+
