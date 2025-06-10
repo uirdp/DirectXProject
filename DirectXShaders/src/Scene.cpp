@@ -40,8 +40,11 @@ PipelineState* skyboxPipelineState;
 DescriptorHeap* descriptorHeap;
 std::vector<DescriptorHandle*> materialHandles;
 DescriptorHandle* skyboxHandle;
+ComPtr<ID3D12Resource> IrradianceMap;
+CD3DX12_CPU_DESCRIPTOR_HANDLE irradianceRtvHandle = {};
+D3D12_GPU_DESCRIPTOR_HANDLE irradianceSrvHandle = {};
 
-const wchar_t* modelFile = L"Assets/Alicia/FBX/Alicia_solid_Unity.FBX";
+const wchar_t* modelFile = L"Assets/bunny.fbx";
 std::vector<Mesh> meshes;
 std::vector<VertexBuffer*> vertexBuffers;
 std::vector<IndexBuffer*> indexBuffers;
@@ -148,6 +151,7 @@ bool Scene::Init()
 	for (size_t i = 0; i < meshes.size(); i++)
 	{
 		auto texPath = ReplaceExtension(meshes[i].DiffuseMapPath, ".tga");
+	    texPath = meshes[i].DiffuseMapPath;
 		auto mainTex = Texture2D::Get(texPath);
 		auto handle = descriptorHeap->Register(mainTex);
 		materialHandles.push_back(handle);
@@ -356,6 +360,58 @@ void Scene::Draw()
 		commandList->DrawIndexedInstanced(meshes[i].Indices.size(), 1, 0, 0, 0);
 	}
 	
+}
+
+bool Scene::CreateIrradianceMapResource()
+{
+	auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	auto texDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+		DXGI_FORMAT_R16G16B16A16_FLOAT,
+		32, 32, 6, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET
+	);
+	
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 1.0f;
+
+	HRESULT hr = g_Engine->Device()->CreateCommittedResource(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		&clearValue,
+		IID_PPV_ARGS(IrradianceMap.ReleaseAndGetAddressOf())
+		);
+	if (FAILED(hr))
+	{
+		printf("イラディアンスマップリソース作成失敗\n");
+		return false;
+	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+	rtvHeapDesc.NumDescriptors = 6;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	ComPtr<ID3D12DescriptorHeap> rtvHeap;
+	hr = g_Engine->Device()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
+	if (FAILED(hr)) return false;
+	irradianceRtvHandle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
+
+	for (UINT i = 0; i < 6; ++i)
+	{
+		D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+		rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+		rtvDesc.Texture2DArray.MipSlice = 0;
+		rtvDesc.Texture2DArray.FirstArraySlice = i;
+		rtvDesc.Texture2DArray.ArraySize = 1;
+		rtvDesc.Texture2DArray.PlaneSlice = 0;
+		g_Engine->Device()->CreateRenderTargetView(IrradianceMap.Get(), &rtvDesc, irradianceRtvHandle);
+		irradianceRtvHandle.ptr += g_Engine->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	}
 }
 
 void Scene::ProcessMouseMovement(int xOffset, int yOffset)

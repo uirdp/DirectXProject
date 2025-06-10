@@ -402,3 +402,5 @@ FodyWeavers.xsd
 
 
 .vs/
+
+DirectXShaders/Assets/*

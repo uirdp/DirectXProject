@@ -8,6 +8,8 @@ public:
 
 	void Update();
 	void Draw();
+	bool CreateIrradianceMapResource();
+	void RenderIrradianceMap();
 
 	void ProcessMouseMovement(int xPos,  int yPos);
 
