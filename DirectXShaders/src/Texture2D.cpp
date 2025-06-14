@@ -168,6 +168,18 @@ Texture2D* Texture2D::Get(std::wstring path)
 	return tex;
 }
 
+Texture2D* Texture2D::Get(ID3D12Resource* buffer)
+{
+	auto tex = new Texture2D(buffer);
+	if (!tex->IsValid())
+	{
+		return GetWhite();
+	}
+
+	return tex;
+}
+
+
 Texture2D* Texture2D::GetWhite()
 {
 	ID3D12Resource* buff = GetDefaultResource(4, 4);

@@ -14,14 +14,19 @@ public:
 
 public:
 	bool Init(HWND hWnd, UINT windowWidth, UINT windowHeight);
+	bool InitIrradianceMap();
+	void DrawIrradianceMap();
 
 	void BeginRender();
 	void EndRender();
+
+	void UpdateFrameCount();
 
 public: // Getters
 	ID3D12Device6* Device();
 	ID3D12GraphicsCommandList* CommandList();
 	UINT CurrentBackBufferIndex();
+	UINT FrameCount();
 
 private: // DX12初期化
 	bool CreateDevice();
@@ -30,13 +35,16 @@ private: // DX12初期化
 	bool CreateCommandList();
 	bool CreateFence();
 	void CreateViewPort();
+	D3D12_VIEWPORT CreateViewPort(UINT height, UINT width);
 	void CreateScissorRect();
+	D3D12_RECT CreateScissorRect(UINT height, UINT width);
 
 private:
 	HWND m_hWnd;
 	UINT m_FrameBufferWidth = 0;
 	UINT m_FrameBufferHeight = 0;
 	UINT m_CurrentBackBufferIndex = 0;
+	UINT m_FrameCount = 0;
 
 	ComPtr<ID3D12Device6> m_pDevice = nullptr; // デバイス
 	ComPtr<ID3D12CommandQueue> m_pQueue = nullptr; // コマンドキュー

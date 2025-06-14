@@ -41,8 +41,8 @@ DescriptorHeap* descriptorHeap;
 std::vector<DescriptorHandle*> materialHandles;
 DescriptorHandle* skyboxHandle;
 ComPtr<ID3D12Resource> IrradianceMap;
-CD3DX12_CPU_DESCRIPTOR_HANDLE irradianceRtvHandle = {};
-D3D12_GPU_DESCRIPTOR_HANDLE irradianceSrvHandle = {};
+ComPtr<ID3D12DescriptorHeap> irradianceMapRtvHeap;
+XMMATRIX perspective;
 
 const wchar_t* modelFile = L"Assets/bunny.fbx";
 std::vector<Mesh> meshes;
@@ -51,6 +51,8 @@ std::vector<IndexBuffer*> indexBuffers;
 
 bool Scene::Init()
 {
+
+	// モデルの読み込み ---------------------------------------------------------------------------------
 	ImportSettings importSettings =
 	{
 		modelFile,
@@ -97,6 +99,8 @@ bool Scene::Init()
 		indexBuffers.push_back(pIB);
 	}
 
+	// モデル用の定数バッファの確保 
+
 	auto targetPos = XMVectorSet(0.0f, 120.0, 0.0, 0.0f);
 	auto upward = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 	
@@ -125,11 +129,22 @@ bool Scene::Init()
 		ptr->WorldInvTranspose = XMMatrixIdentity();
 	}
 
+	// モデルのテクスチャ準備 
+	descriptorHeap = new DescriptorHeap();
+	materialHandles.clear();
+	for (size_t i = 0; i < meshes.size(); i++)
+	{
+		// Aliciaのモデルを使う場合、テクスチャはtgaファイルを用いたい
+		// auto texPath = ReplaceExtension(meshes[i].DiffuseMapPath, ".tga");
+		auto texPath = meshes[i].DiffuseMapPath;
+		auto mainTex = Texture2D::Get(texPath);
+		auto handle = descriptorHeap->Register(mainTex);
+		materialHandles.push_back(handle);
+	}
+
+	// ライトの準備 ----------------------------------------------------------------------------------
 	SceneData sceneData = {};
 	sceneData.Lights[0].Position = { 1000.0f, 1000.0f, 1000.0f };
-	sceneData.Lights[1].Position = { -10.0f, 20.0f, -30.0f };
-	sceneData.Lights[2].Position = { 0.0f, 0.0f, 0.0f };
-	sceneData.Lights[3].Position = { 3.0f, 0.0f, 0.0f };
 	sceneData.LightCount = 1;
 	sceneData.CameraPosition = eyePos;
 
@@ -145,85 +160,6 @@ bool Scene::Init()
 		auto ptr = sceneBuffer[i]->GetPtr<SceneData>();
 		*ptr = sceneData;
 	}
-
-	descriptorHeap = new DescriptorHeap();
-	materialHandles.clear();
-	for (size_t i = 0; i < meshes.size(); i++)
-	{
-		auto texPath = ReplaceExtension(meshes[i].DiffuseMapPath, ".tga");
-	    texPath = meshes[i].DiffuseMapPath;
-		auto mainTex = Texture2D::Get(texPath);
-		auto handle = descriptorHeap->Register(mainTex);
-		materialHandles.push_back(handle);
-	}
-
-      VertexPositionOnly skyboxVertices[] = {
-		  {{-1.0f, -1.0f, -1.0f}}, // 0: 左下前
-		  {{ 1.0f, -1.0f, -1.0f}}, // 1: 右下前
-		  {{ 1.0f,  1.0f, -1.0f}}, // 2: 右上前
-		  {{-1.0f,  1.0f, -1.0f}}, // 3: 左上前
-		  {{-1.0f, -1.0f,  1.0f}}, // 4: 左下奥
-		  {{ 1.0f, -1.0f,  1.0f}}, // 5: 右下奥
-		  {{ 1.0f,  1.0f,  1.0f}}, // 6: 右上奥
-		  {{-1.0f,  1.0f,  1.0f}}, // 7: 左上奥
-        };
-
-	// 面の向きを内向きに反転（時計回り → 反時計回り）
-	uint32_t skyboxIndices[] = {
-		// 前面
-		0, 1, 2,  0, 2, 3,
-		// 右面
-		1, 5, 6,  1, 6, 2,
-		// 奥面
-		5, 4, 7,  5, 7, 6,
-		// 左面
-		4, 0, 3,  4, 3, 7,
-		// 上面
-		3, 2, 6,  3, 6, 7,
-		// 下面
-		4, 5, 1,  4, 1, 0
-	};
-
-	auto vertexSize = sizeof(VertexPositionOnly) * std::size(skyboxVertices);
-	auto vertexStride = sizeof(VertexPositionOnly);
-	skyboxVertexBuffer = new VertexBuffer(vertexSize, vertexStride, skyboxVertices);
-	if (!skyboxVertexBuffer->IsValid())
-	{
-		printf("スカイボックス用頂点バッファの生成に失敗\n");
-		return false;
-	}
-
-	auto indexSize = sizeof(uint32_t) * std::size(skyboxIndices);
-	skyboxIndexBuffer = new IndexBuffer(indexSize, skyboxIndices);
-	if (!skyboxIndexBuffer->IsValid())
-	{
-		printf("スカイボックス用インデックスバッファの生成に失敗\n");
-		return false;
-	}
-
-	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
-	{
-		skyboxBuffer[i] = new ConstantBuffer(sizeof(Transform));
-		if (!skyboxBuffer[i]->IsValid())
-		{
-			printf("定数バッファの生成に失敗\n");
-			return false;
-		}
-
-		// mapされている
-		auto ptr = skyboxBuffer[i]->GetPtr<Transform>();
-		ptr->World = XMMatrixIdentity() * XMMatrixScaling(500.0f, 500.0f, 500.0f);
-		ptr->View = m_pCamera->GetViewMatrix();
-		ptr->Projection = XMMatrixPerspectiveFovRH(fov, aspect, 0.3f, 1000.0f);
-		ptr->WorldInvTranspose = XMMatrixIdentity();
-	}
-
-	{
-		auto texPath = L"Assets/Texture/BrightSky.dds";
-		auto skyBox = Texture2D::Get(texPath);
-		skyboxHandle = descriptorHeap->Register(skyBox);
-	}
-	
 
 	rootSignature = new RootSignature();
 	if (!rootSignature->IsValid())
@@ -254,6 +190,78 @@ bool Scene::Init()
 		return false;
 	}
 
+	// スカイボックスの準備 ---------------------------------------------------------------------
+	{
+		auto texPath = L"Assets/Texture/BrightSky.dds";
+		auto skyBox = Texture2D::Get(texPath);
+		skyboxHandle = descriptorHeap->Register(skyBox);
+	}
+
+     VertexPositionOnly skyboxVertices[] = {
+		  {{-1.0f, -1.0f, -1.0f}}, // 0: 左下前
+		  {{ 1.0f, -1.0f, -1.0f}}, // 1: 右下前
+		  {{ 1.0f,  1.0f, -1.0f}}, // 2: 右上前
+		  {{-1.0f,  1.0f, -1.0f}}, // 3: 左上前
+		  {{-1.0f, -1.0f,  1.0f}}, // 4: 左下奥
+		  {{ 1.0f, -1.0f,  1.0f}}, // 5: 右下奥
+		  {{ 1.0f,  1.0f,  1.0f}}, // 6: 右上奥
+		  {{-1.0f,  1.0f,  1.0f}}, // 7: 左上奥
+        };
+
+	uint32_t skyboxIndices[] = {
+		// 前面
+		0, 1, 2,  0, 2, 3,
+		// 右面
+		1, 5, 6,  1, 6, 2,
+		// 奥面
+		5, 4, 7,  5, 7, 6,
+		// 左面
+		4, 0, 3,  4, 3, 7,
+		// 上面
+		3, 2, 6,  3, 6, 7,
+		// 下面
+		4, 5, 1,  4, 1, 0
+	};
+
+	// スカイボックスには頂点のポジションだけ必要なのでVertexPositionOnlyを使用する
+	auto vertexSize = sizeof(VertexPositionOnly) * std::size(skyboxVertices);
+	auto vertexStride = sizeof(VertexPositionOnly);
+	skyboxVertexBuffer = new VertexBuffer(vertexSize, vertexStride, skyboxVertices);
+	if (!skyboxVertexBuffer->IsValid())
+	{
+		printf("スカイボックス用頂点バッファの生成に失敗\n");
+		return false;
+	}
+
+	auto indexSize = sizeof(uint32_t) * std::size(skyboxIndices);
+	skyboxIndexBuffer = new IndexBuffer(indexSize, skyboxIndices);
+	if (!skyboxIndexBuffer->IsValid())
+	{
+		printf("スカイボックス用インデックスバッファの生成に失敗\n");
+		return false;
+	}
+
+	perspective = XMMatrixPerspectiveFovRH(fov, aspect, 0.3f, 1000.0f);
+	// スカイボックスの頂点シェーダーに送る定数バッファ 
+	for (size_t i = 0; i < Engine::FRAME_BUFFER_COUNT; i++)
+	{
+		skyboxBuffer[i] = new ConstantBuffer(sizeof(Transform));
+		if (!skyboxBuffer[i]->IsValid())
+		{
+			printf("定数バッファの生成に失敗\n");
+			return false;
+		}
+
+		// mapされている
+		auto ptr = skyboxBuffer[i]->GetPtr<Transform>();
+		ptr->World = XMMatrixIdentity() * XMMatrixScaling(500.0f, 500.0f, 500.0f);
+		ptr->View = m_pCamera->GetViewMatrix();
+		ptr->Projection = XMMatrixPerspectiveFovRH(fov, aspect, 0.3f, 1000.0f);
+		ptr->WorldInvTranspose = XMMatrixIdentity();
+	}
+
+	
+	
 	skyboxRootSignature = new RootSignature();
 	if (!skyboxRootSignature->IsValid())
 	{
@@ -281,6 +289,14 @@ bool Scene::Init()
 	{
 		printf("スカイボックス用パイプラインステートの生成に失敗");
 	}
+
+	// IBL用のイラディアンスマップをつくる
+	if (!CreateIrradianceMapResource())
+	{
+		printf("イラディアンスマップのリソース作成に失敗");
+	}
+
+	RenderIrradianceMap();
 
 	printf("シーンの初期化に成功\n");
 	return true;
@@ -317,6 +333,7 @@ void Scene::Update()
 
 void Scene::Draw()
 {
+
 	auto currentIndex = g_Engine->CurrentBackBufferIndex();
 	auto commandList = g_Engine->CommandList();
 	auto materialHeap = descriptorHeap->Get();
@@ -395,10 +412,10 @@ bool Scene::CreateIrradianceMapResource()
 	rtvHeapDesc.NumDescriptors = 6;
 	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	ComPtr<ID3D12DescriptorHeap> rtvHeap;
-	hr = g_Engine->Device()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&rtvHeap));
+
+	hr = g_Engine->Device()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&irradianceMapRtvHeap));
 	if (FAILED(hr)) return false;
-	irradianceRtvHandle = rtvHeap->GetCPUDescriptorHandleForHeapStart();
+	auto irradianceRtvHandle = irradianceMapRtvHeap->GetCPUDescriptorHandleForHeapStart();
 
 	for (UINT i = 0; i < 6; ++i)
 	{
@@ -412,6 +429,126 @@ bool Scene::CreateIrradianceMapResource()
 		g_Engine->Device()->CreateRenderTargetView(IrradianceMap.Get(), &rtvDesc, irradianceRtvHandle);
 		irradianceRtvHandle.ptr += g_Engine->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
+
+	return true;
+}
+
+void Scene::RenderIrradianceMap()
+{
+	
+	RootSignature* irradianceMapRootSignature = new RootSignature();
+	if (!irradianceMapRootSignature->IsValid())
+	{
+		printf("イラディアンスマップ用のルートシグネチャの生成に失敗\n");
+	}
+
+	PipelineState* irradianceMapPipelineState = new PipelineState();
+	irradianceMapPipelineState->SetInputLayout(VertexPositionOnly::InputLayout);
+	irradianceMapPipelineState->SetRootSignature(irradianceMapRootSignature->Get());
+
+	if (IsDebuggerPresent())
+	{
+		irradianceMapPipelineState->SetVertexShader(L"../x64/Debug/SkyboxVS.cso");
+		irradianceMapPipelineState->SetPixelShader(L"../x64/Debug/IrradiancePS.cso");
+	}
+
+	else
+	{
+		irradianceMapPipelineState->SetVertexShader(L"SkyboxVS.cso");
+		irradianceMapPipelineState->SetPixelShader(L"IrradiancePS.cso");
+	}
+
+	irradianceMapPipelineState->Create();
+	if (!irradianceMapPipelineState->IsValid())
+	{
+		printf("スカイボックス用パイプラインステートの生成に失敗");
+	}
+
+	XMMATRIX captureProjection = XMMatrixPerspectiveFovRH(XMConvertToRadians(90.0f), 1.0f, 0.1f, 10.0f);
+
+	XMMATRIX captureViews[6] =
+	{
+		XMMatrixLookAtRH(
+			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), // eye
+			XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), // target (+X)
+			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)  // up
+		),
+		XMMatrixLookAtRH(
+			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+			XMVectorSet(-1.0f, 0.0f, 0.0f, 0.0f), // -X
+			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
+		),
+		XMMatrixLookAtRH(
+			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f), // +Y
+			XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f)
+		),
+		XMMatrixLookAtRH(
+			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+			XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f), // -Y
+			XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f)
+		),
+		XMMatrixLookAtRH(
+			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+			XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f), // +Z
+			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
+		),
+		XMMatrixLookAtRH(
+			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+			XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f), // -Z
+			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
+		)
+	};
+	// スカイボックスの頂点シェーダーに送る定数バッファ 
+	ConstantBuffer* irradianceMapBuffer = new ConstantBuffer(sizeof(Transform));
+	if (!irradianceMapBuffer->IsValid())
+	{
+		printf("イラディアンスマップ用定数バッファの生成に失敗\n");
+	}
+
+	auto ptr = irradianceMapBuffer->GetPtr<Transform>();
+	ptr->World = XMMatrixIdentity();
+	ptr->View = captureViews[0];
+	ptr->Projection = captureProjection;
+	ptr->WorldInvTranspose = XMMatrixIdentity();
+
+	for (int face = 0; face < 6; ++face){
+		
+		auto currentIndex = g_Engine->CurrentBackBufferIndex();
+		auto commandList = g_Engine->CommandList();
+		auto materialHeap = descriptorHeap->Get();
+
+		// RTVのDescriptorHeapの先頭
+		auto RtvHandle = irradianceMapRtvHeap->GetCPUDescriptorHandleForHeapStart();
+		auto m_RtvDescriptorSize = g_Engine->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		// 現在のRTVの先頭
+		RtvHandle.ptr += face * m_RtvDescriptorSize;
+
+		commandList->OMSetRenderTargets(1, &RtvHandle, FALSE, nullptr);
+
+		irradianceMapBuffer->GetPtr<Transform>()->View = captureViews[face];
+
+		auto vbView = skyboxVertexBuffer->View();
+		auto ibView = skyboxIndexBuffer->View();
+
+		commandList->SetGraphicsRootSignature(irradianceMapRootSignature->Get());
+		commandList->SetPipelineState(irradianceMapPipelineState->Get());
+
+		commandList->SetGraphicsRootConstantBufferView(3, irradianceMapBuffer->GetAddress());
+
+		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		commandList->IASetVertexBuffers(0, 1, &vbView);
+		commandList->IASetIndexBuffer(&ibView);
+
+		commandList->SetDescriptorHeaps(1, &materialHeap);
+		commandList->SetGraphicsRootDescriptorTable(1, skyboxHandle->HandleGPU);
+
+		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+	}
+
+	auto skyBox = Texture2D::Get(IrradianceMap.Get());
+	skyboxHandle = descriptorHeap->Register(skyBox);
+	
 }
 
 void Scene::ProcessMouseMovement(int xOffset, int yOffset)

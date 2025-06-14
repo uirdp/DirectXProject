@@ -5,13 +5,7 @@ struct VSOutput
 };
 
 TextureCube _CubeMap : register(t0);
-SamplerState smp
-{
-	Filter = MIN_MAG_MIP_LINEAR;
-	AddressU = Wrap;
-	AddressV = Wrap;
-	AddressW = Wrap;
-};
+SamplerState smp : register(s0);
 
 
 float4 main(VSOutput input) : SV_TARGET

@@ -11,6 +11,7 @@ class Texture2D
 public:
 	static Texture2D* Get(std::string path);
 	static Texture2D* Get(std::wstring path);
+	static Texture2D* Get(ID3D12Resource* buffer);
 	static Texture2D* GetWhite();
 	bool IsValid();
 

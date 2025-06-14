@@ -125,7 +125,6 @@ void MainLoop()
 	Timer timer;
 	const float targetFrameRate = (1.0f / 60.0f) * 1000.0f;
 
-
 	MSG msg = {};
 	while (msg.message != WM_QUIT)
 	{
@@ -146,11 +145,11 @@ void MainLoop()
 				g_DeltaTime = targetFrameRate;
 			}
 
-			printf("(APP.cpp) FPS : %f\n", (1.0f / g_DeltaTime) * 1000.0f);
 			g_Scene->Update();
 			g_Engine->BeginRender();
 			g_Scene->Draw();
 			g_Engine->EndRender();
+			g_Engine->UpdateFrameCount();
 		}
 	}
 }
@@ -176,6 +175,8 @@ void StartApp(const TCHAR* appName)
 		MessageBox(nullptr, L"Scene initialization failed", L"Error", MB_OK);
 		return;
 	}
+
+	g_Engine->DrawIrradianceMap();
 
 	MainLoop();
 }

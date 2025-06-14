@@ -8,6 +8,7 @@ Engine* g_Engine;
 
 bool Engine::Init(HWND hWnd, UINT windowWidth, UINT windowHeight)
 {
+	m_FrameCount = 0;
 	m_FrameBufferWidth = windowWidth;
 	m_FrameBufferHeight = windowHeight;
 	m_hWnd = hWnd;
@@ -57,8 +58,36 @@ bool Engine::Init(HWND hWnd, UINT windowWidth, UINT windowHeight)
 		return false;
 	}
 
+	if (!InitIrradianceMap())
+	{
+		printf("イラディアンスマップの準備に失敗");
+		return false;
+	}
+
 	printf("描画エンジンの初期化に成功\n");
 	return true;
+}
+
+bool Engine::InitIrradianceMap()
+{
+	m_pAllocator[m_CurrentBackBufferIndex]->Reset();
+	m_pCommandList->Reset(m_pAllocator[m_CurrentBackBufferIndex].Get(), nullptr);
+
+	auto viewport = CreateViewPort(32, 32);
+	auto scissor = CreateScissorRect(32, 32);
+	m_pCommandList->RSSetViewports(1, &viewport);
+	m_pCommandList->RSSetScissorRects(1, &scissor);
+
+	return true;
+}
+
+void Engine::DrawIrradianceMap()
+{
+	m_pCommandList->Close();
+
+	ID3D12CommandList* ppCommandLists[] = { m_pCommandList.Get() };
+	m_pQueue->ExecuteCommandLists(1, ppCommandLists);
+
 }
 
 ID3D12Device6* Engine::Device()
@@ -74,6 +103,11 @@ ID3D12GraphicsCommandList* Engine::CommandList()
 UINT Engine::CurrentBackBufferIndex()
 {
 	return m_CurrentBackBufferIndex;
+}
+
+UINT Engine::FrameCount()
+{
+	return m_FrameCount;
 }
 
 bool Engine::CreateDevice()
@@ -214,12 +248,37 @@ void Engine::CreateViewPort()
 	m_Viewport.MaxDepth = 1.0f;
 }
 
+D3D12_VIEWPORT Engine::CreateViewPort(UINT height, UINT width)
+{
+	D3D12_VIEWPORT viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = static_cast<float>(width);
+	viewport.Height = static_cast<float>(height);
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+
+	return viewport;
+}
+
 void Engine::CreateScissorRect()
 {
 	m_Scissor.left = 0;
 	m_Scissor.right = m_FrameBufferWidth;
 	m_Scissor.top = 0;
 	m_Scissor.bottom = m_FrameBufferHeight;
+}
+
+
+D3D12_RECT Engine::CreateScissorRect(UINT height, UINT width)
+{
+	D3D12_RECT scissor;
+	scissor.left = 0;
+	scissor.right = width;
+	scissor.top = 0;
+	scissor.bottom = height;
+
+	return scissor;
 }
 
 bool Engine::CreateRenderTarget()
@@ -360,4 +419,9 @@ void Engine::EndRender()
 	WaitRender();
 
 	m_CurrentBackBufferIndex = m_pSwapChain->GetCurrentBackBufferIndex();
+}
+
+void Engine::UpdateFrameCount()
+{
+	m_FrameCount++;
 }
