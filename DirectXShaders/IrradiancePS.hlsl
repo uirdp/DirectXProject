@@ -7,6 +7,7 @@ struct VSOutput
 TextureCube _CubeMap : register(t0);
 SamplerState smp : register(s0);
 
+// 定数を使うとなぜか上手くいかない・・・
 // const float PI = 3.14159265359;
 const float PI = 3.14;
 
@@ -16,8 +17,8 @@ float4 main(VSOutput input) : SV_TARGET
     float3 irradiance = float3(0, 0, 0);
 
     float3 up = float3(0.0, 1.0, 0.0);
-    float3 right = normalize(cross(up, normal));
-    up = normalize(cross(normal, right));
+    float3 right = normalize(cross(normal, up));
+    up = normalize(cross(right, normal));
 
     float sampleDelta = 0.025;
     float nrSamples = 0.0;
@@ -34,13 +35,12 @@ float4 main(VSOutput input) : SV_TARGET
             float3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * normal;
 
             irradiance += _CubeMap.SampleLevel(smp, sampleVec, 0).rgb * cos(theta) *sin(theta);
-            // irradiance += float3(0.0, 0.0, 0.1);
             nrSamples++;
         }
     }
 
 
     irradiance = 3.14159265359 * irradiance * (1.0 / max(nrSamples, 1.0));
-    // irradiance = float3(1.0, 0.0, 0.0)   // this will output red
+   //irradiance = float3(1.0, 0.0, 0.0);   // this will output red
     return float4(irradiance, 1.0);
 }

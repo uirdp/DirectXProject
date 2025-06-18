@@ -162,14 +162,18 @@ void StartApp(const TCHAR* appName)
 	EnableDebugLayer();
 #endif
 
+
 	g_Engine = new Engine();
 	if (!g_Engine->Init(g_hWnd, WINDOW_WIDTH, WINDOW_HEIGHT))
 	{
 		MessageBox(nullptr, L"Engine initialization failed", L"Error", MB_OK);
 		return;
 	}
-
 	g_Scene = new Scene();
+
+	// g_Engine->InitIrradianceMap();
+
+
 	if (!g_Scene->Init())
 	{
 		MessageBox(nullptr, L"Scene initialization failed", L"Error", MB_OK);

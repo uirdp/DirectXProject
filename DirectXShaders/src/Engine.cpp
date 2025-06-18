@@ -58,12 +58,6 @@ bool Engine::Init(HWND hWnd, UINT windowWidth, UINT windowHeight)
 		return false;
 	}
 
-	if (!InitIrradianceMap())
-	{
-		printf("イラディアンスマップの準備に失敗");
-		return false;
-	}
-
 	printf("描画エンジンの初期化に成功\n");
 	return true;
 }
