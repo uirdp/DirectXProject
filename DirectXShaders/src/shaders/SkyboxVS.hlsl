@@ -25,5 +25,6 @@ VSOutput vert(VSInput input)
 	output.dir = input.pos;
 	float4 viewpos = mul(View, worldPos);
 	output.svpos = mul(Proj, viewpos);
+	// output.dir = mul(Proj, viewpos);
 	return output;
 }

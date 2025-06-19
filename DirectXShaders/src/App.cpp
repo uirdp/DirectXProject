@@ -169,11 +169,9 @@ void StartApp(const TCHAR* appName)
 		MessageBox(nullptr, L"Engine initialization failed", L"Error", MB_OK);
 		return;
 	}
+	g_Engine->InitIrradianceMap();
+
 	g_Scene = new Scene();
-
-	// g_Engine->InitIrradianceMap();
-
-
 	if (!g_Scene->Init())
 	{
 		MessageBox(nullptr, L"Scene initialization failed", L"Error", MB_OK);

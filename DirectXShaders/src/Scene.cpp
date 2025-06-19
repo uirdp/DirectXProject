@@ -49,6 +49,224 @@ std::vector<Mesh> meshes;
 std::vector<VertexBuffer*> vertexBuffers;
 std::vector<IndexBuffer*> indexBuffers;
 
+bool Scene::CreateIrradianceMapResource()
+{
+	auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	auto texDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+		DXGI_FORMAT_R16G16B16A16_FLOAT,
+		32, 32, 6, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET
+	);
+
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 1.0f;
+
+	HRESULT hr = g_Engine->Device()->CreateCommittedResource(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		&clearValue,
+		IID_PPV_ARGS(IrradianceMap.ReleaseAndGetAddressOf())
+	);
+	if (FAILED(hr))
+	{
+		printf("イラディアンスマップリソース作成失敗\n");
+		return false;
+	}
+
+	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
+	rtvHeapDesc.NumDescriptors = 6;
+	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+	hr = g_Engine->Device()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&irradianceMapRtvHeap));
+	if (FAILED(hr)) return false;
+	auto irradianceRtvHandle = irradianceMapRtvHeap->GetCPUDescriptorHandleForHeapStart();
+
+	for (UINT i = 0; i < 6; ++i)
+	{
+		D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+		rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+		rtvDesc.Texture2DArray.MipSlice = 0;
+		rtvDesc.Texture2DArray.FirstArraySlice = i;
+		rtvDesc.Texture2DArray.ArraySize = 1;
+		rtvDesc.Texture2DArray.PlaneSlice = 0;
+		g_Engine->Device()->CreateRenderTargetView(IrradianceMap.Get(), &rtvDesc, irradianceRtvHandle);
+		irradianceRtvHandle.ptr += g_Engine->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	}
+
+	return true;
+}
+
+
+
+void Scene::RenderIrradianceMap()
+{
+
+	RootSignature* irradianceMapRootSignature = new RootSignature();
+	if (!irradianceMapRootSignature->IsValid())
+	{
+		printf("イラディアンスマップ用のルートシグネチャの生成に失敗\n");
+	}
+
+	PipelineState* irradianceMapPipelineState = new PipelineState();
+	irradianceMapPipelineState->SetInputLayout(VertexPositionOnly::InputLayout);
+	irradianceMapPipelineState->SetRootSignature(irradianceMapRootSignature->Get());
+
+	if (IsDebuggerPresent())
+	{
+		irradianceMapPipelineState->SetVertexShader(L"../x64/Debug/SkyboxVS.cso");
+		irradianceMapPipelineState->SetPixelShader(L"../x64/Debug/IrradiancePS.cso");
+	}
+
+	else
+	{
+		irradianceMapPipelineState->SetVertexShader(L"SkyboxVS.cso");
+		irradianceMapPipelineState->SetPixelShader(L"IrradiancePS.cso");
+	}
+
+	irradianceMapPipelineState->Create();
+	if (!irradianceMapPipelineState->IsValid())
+	{
+		printf("スカイボックス用パイプラインステートの生成に失敗");
+	}
+
+	XMMATRIX captureProjection = XMMatrixPerspectiveFovRH(XMConvertToRadians(90.0f), 1.0f, 0.1f, 10.0f);
+
+	XMMATRIX captureViews[] =
+	{
+		// +X 方向
+		XMMatrixLookAtRH(
+			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), // Eye position
+			XMVectorSet(1.0f, 0.0f, 0.0f, 1.0f), // Look-at target
+			XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f) // Up direction
+		),
+
+			// -X 方向
+			XMMatrixLookAtRH(
+				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+				XMVectorSet(-1.0f, 0.0f, 0.0f, 1.0f),
+				XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
+			),
+
+			// +Y 方向
+			XMMatrixLookAtRH(
+				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+				XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f),
+				XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f)
+			),
+
+			// -Y 方向
+			XMMatrixLookAtRH(
+				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+				XMVectorSet(0.0f, -1.0f, 0.0f, 1.0f),
+				XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f)
+			),
+
+			// +Z 方向
+			XMMatrixLookAtRH(
+				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+				XMVectorSet(0.0f, 0.0f, 1.0f, 1.0f),
+				XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
+			),
+
+			// -Z 方向
+			XMMatrixLookAtRH(
+				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
+				XMVectorSet(0.0f, 0.0f, -1.0f, 1.0f),
+				XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
+			)
+	};
+
+	
+
+	// スカイボックスの頂点シェーダーに送る定数バッファ 
+	ConstantBuffer* irradianceMapBuffer = new ConstantBuffer(sizeof(Transform));
+    ConstantBuffer* irradianceMapBuffers[6];
+
+	for (size_t face = 0; face < 6; face++)
+	{
+		irradianceMapBuffers[face] = new ConstantBuffer(sizeof(Transform));
+		if (!irradianceMapBuffers[face]->IsValid())
+		{
+			printf("イラディアンスマップ用定数バッファの生成に失敗\n");
+		}
+		// mapされている
+		auto ptr = irradianceMapBuffers[face]->GetPtr<Transform>();
+		ptr->World = XMMatrixIdentity();
+		ptr->View = captureViews[face];
+		ptr->Projection = captureProjection;
+		ptr->WorldInvTranspose = XMMatrixIdentity();
+	}
+
+
+	
+
+	auto ptr = irradianceMapBuffer->GetPtr<Transform>();
+	ptr->World = XMMatrixIdentity();
+	ptr->View = captureViews[0];
+	ptr->Projection = captureProjection;
+	ptr->WorldInvTranspose = XMMatrixIdentity();
+
+	for (int face = 0; face < 6; ++face)
+	{
+		auto currentIndex = g_Engine->CurrentBackBufferIndex();
+		auto commandList = g_Engine->CommandList();
+		
+		auto materialHeap = descriptorHeap->Get();
+
+		// D3D12_RESOURCE_BARRIER barrier = {};
+		//barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		//barrier.Transition.pResource = IrradianceMap.Get();
+		//barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE; // 直前の状態に応じて
+		//barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		//barrier.Transition.Subresource = D3D12CalcSubresource(0, face, 0, 1, 6);
+		//commandList->ResourceBarrier(1, &barrier);
+
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			IrradianceMap.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12CalcSubresource(0, face, 0, 1, 6));
+		commandList->ResourceBarrier(1, &barrier);
+
+		// RTVのDescriptorHeapの先頭
+		auto RtvHandle = irradianceMapRtvHeap->GetCPUDescriptorHandleForHeapStart();
+		auto m_RtvDescriptorSize = g_Engine->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		// 現在のRTVの先頭
+		RtvHandle.ptr += m_RtvDescriptorSize * face;
+
+		commandList->OMSetRenderTargets(1, &RtvHandle, FALSE, nullptr);
+
+		// commandList Closeされた時の定数バッファが利用されるためでは？
+		irradianceMapBuffer->GetPtr<Transform>()->View = captureViews[face];
+
+		auto vbView = skyboxVertexBuffer->View();
+		auto ibView = skyboxIndexBuffer->View();
+
+		commandList->SetGraphicsRootSignature(irradianceMapRootSignature->Get());
+		commandList->SetPipelineState(irradianceMapPipelineState->Get());
+
+		commandList->SetGraphicsRootConstantBufferView(3, irradianceMapBuffers[face]->GetAddress());
+
+		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		commandList->IASetVertexBuffers(0, 1, &vbView);
+		commandList->IASetIndexBuffer(&ibView);
+
+		commandList->SetDescriptorHeaps(1, &materialHeap);
+		commandList->SetGraphicsRootDescriptorTable(1, skyboxHandle->HandleGPU);
+
+		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+
+		barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			IrradianceMap.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12CalcSubresource(0, face, 0, 1, 6));
+		commandList->ResourceBarrier(1, &barrier);
+	}
+}
+
+
 bool Scene::InitSkyboxAndIrradianceMap()
 {
 	descriptorHeap = new DescriptorHeap();
@@ -160,13 +378,14 @@ bool Scene::InitSkyboxAndIrradianceMap()
 	}
 
 	// IBL用のイラディアンスマップをつくる
-	/*if (!CreateIrradianceMapResource())
+	if (!CreateIrradianceMapResource())
 	{
 		printf("イラディアンスマップのリソース作成に失敗");
 		return false;
-	}*/
+	}
 
-	// RenderIrradianceMap();
+	RenderIrradianceMap();
+
 
 	return true;
 }
@@ -259,8 +478,8 @@ bool Scene::Init()
 		auto texPath = meshes[i].DiffuseMapPath;
 		auto mainTex = Texture2D::Get(texPath);
 		auto handle = descriptorHeap->Register(mainTex);
-		// auto irradiance = Texture2D::Get(IrradianceMap.Get());
-		// descriptorHeap->Register(irradiance);
+		auto irradiance = Texture2D::Get(IrradianceMap.Get());
+		descriptorHeap->Register(irradiance);
 		materialHandles.push_back(handle);
 	}
 
@@ -354,6 +573,12 @@ void Scene::Draw()
 	auto commandList = g_Engine->CommandList();
 	auto materialHeap = descriptorHeap->Get();
 
+	if (g_Engine->FrameCount() == 0)
+	{
+		printf("イラディアンスマップを登録します\n");
+		auto irradiance = Texture2D::Get(IrradianceMap.Get());
+		skyboxHandle = descriptorHeap->Register(irradiance);
+	}
 	auto vbView = skyboxVertexBuffer->View();
 	auto ibView = skyboxIndexBuffer->View();
 
@@ -395,176 +620,6 @@ void Scene::Draw()
 	
 }
 
-bool Scene::CreateIrradianceMapResource()
-{
-	auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-	auto texDesc = CD3DX12_RESOURCE_DESC::Tex2D(
-		DXGI_FORMAT_R16G16B16A16_FLOAT,
-		32, 32, 6, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET
-	);
-	
-	D3D12_CLEAR_VALUE clearValue = {};
-	clearValue.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	clearValue.Color[0] = 0.0f;
-	clearValue.Color[1] = 0.0f;
-	clearValue.Color[2] = 0.0f;
-	clearValue.Color[3] = 1.0f;
-
-	HRESULT hr = g_Engine->Device()->CreateCommittedResource(
-		&heapProp,
-		D3D12_HEAP_FLAG_NONE,
-		&texDesc,
-		D3D12_RESOURCE_STATE_RENDER_TARGET,
-		&clearValue,
-		IID_PPV_ARGS(IrradianceMap.ReleaseAndGetAddressOf())
-		);
-	if (FAILED(hr))
-	{
-		printf("イラディアンスマップリソース作成失敗\n");
-		return false;
-	}
-
-	D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
-	rtvHeapDesc.NumDescriptors = 6;
-	rtvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-
-	hr = g_Engine->Device()->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&irradianceMapRtvHeap));
-	if (FAILED(hr)) return false;
-	auto irradianceRtvHandle = irradianceMapRtvHeap->GetCPUDescriptorHandleForHeapStart();
-
-	for (UINT i = 0; i < 6; ++i)
-	{
-		D3D12_RENDER_TARGET_VIEW_DESC rtvDesc = {};
-		rtvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
-		rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
-		rtvDesc.Texture2DArray.MipSlice = 0;
-		rtvDesc.Texture2DArray.FirstArraySlice = i;
-		rtvDesc.Texture2DArray.ArraySize = 1;
-		rtvDesc.Texture2DArray.PlaneSlice = 0;
-		g_Engine->Device()->CreateRenderTargetView(IrradianceMap.Get(), &rtvDesc, irradianceRtvHandle);
-		irradianceRtvHandle.ptr += g_Engine->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	}
-
-	return true;
-}
-
-void Scene::RenderIrradianceMap()
-{
-	
-	RootSignature* irradianceMapRootSignature = new RootSignature();
-	if (!irradianceMapRootSignature->IsValid())
-	{
-		printf("イラディアンスマップ用のルートシグネチャの生成に失敗\n");
-	}
-
-	PipelineState* irradianceMapPipelineState = new PipelineState();
-	irradianceMapPipelineState->SetInputLayout(VertexPositionOnly::InputLayout);
-	irradianceMapPipelineState->SetRootSignature(irradianceMapRootSignature->Get());
-
-	if (IsDebuggerPresent())
-	{
-		irradianceMapPipelineState->SetVertexShader(L"../x64/Debug/SkyboxVS.cso");
-		irradianceMapPipelineState->SetPixelShader(L"../x64/Debug/IrradiancePS.cso");
-	}
-
-	else
-	{
-		irradianceMapPipelineState->SetVertexShader(L"SkyboxVS.cso");
-		irradianceMapPipelineState->SetPixelShader(L"IrradiancePS.cso");
-	}
-
-	irradianceMapPipelineState->Create();
-	if (!irradianceMapPipelineState->IsValid())
-	{
-		printf("スカイボックス用パイプラインステートの生成に失敗");
-	}
-
-	XMMATRIX captureProjection = XMMatrixPerspectiveFovRH(XMConvertToRadians(90.0f), 1.0f, 0.1f, 10.0f);
-
-	XMMATRIX captureViews[] =
-{
-    XMMatrixLookAtLH(
-        XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), // Eye position
-        XMVectorSet(1.0f, 0.0f, 0.0f, 1.0f), // Look at target
-        XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f) // Up direction
-    ),
-    XMMatrixLookAtLH(
-        XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
-        XMVectorSet(-1.0f, 0.0f, 0.0f, 1.0f),
-        XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
-    ),
-    XMMatrixLookAtLH(
-        XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
-        XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f),
-        XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f)
-    ),
-    XMMatrixLookAtLH(
-        XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
-        XMVectorSet(0.0f, -1.0f, 0.0f, 1.0f),
-        XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f)
-    ),
-    XMMatrixLookAtLH(
-        XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
-        XMVectorSet(0.0f, 0.0f, 1.0f, 1.0f),
-        XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
-    ),
-    XMMatrixLookAtLH(
-        XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
-        XMVectorSet(0.0f, 0.0f, -1.0f, 1.0f),
-        XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
-    )
-};
-	// スカイボックスの頂点シェーダーに送る定数バッファ 
-	ConstantBuffer* irradianceMapBuffer = new ConstantBuffer(sizeof(Transform));
-	if (!irradianceMapBuffer->IsValid())
-	{
-		printf("イラディアンスマップ用定数バッファの生成に失敗\n");
-	}
-
-	auto ptr = irradianceMapBuffer->GetPtr<Transform>();
-	ptr->World = XMMatrixIdentity();
-	ptr->View = captureViews[0];
-	ptr->Projection = captureProjection;
-	ptr->WorldInvTranspose = XMMatrixIdentity();
-
-	for (int face = 0; face < 6; ++face){
-		
-		auto currentIndex = g_Engine->CurrentBackBufferIndex();
-		auto commandList = g_Engine->CommandList();
-		auto materialHeap = descriptorHeap->Get();
-
-		// RTVのDescriptorHeapの先頭
-		auto RtvHandle = irradianceMapRtvHeap->GetCPUDescriptorHandleForHeapStart();
-		auto m_RtvDescriptorSize = g_Engine->Device()->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		// 現在のRTVの先頭
-		RtvHandle.ptr += face * m_RtvDescriptorSize;
-
-		commandList->OMSetRenderTargets(1, &RtvHandle, FALSE, nullptr);
-
-		irradianceMapBuffer->GetPtr<Transform>()->View = captureViews[face];
-
-		auto vbView = skyboxVertexBuffer->View();
-		auto ibView = skyboxIndexBuffer->View();
-
-		commandList->SetGraphicsRootSignature(irradianceMapRootSignature->Get());
-		commandList->SetPipelineState(irradianceMapPipelineState->Get());
-
-		commandList->SetGraphicsRootConstantBufferView(3, irradianceMapBuffer->GetAddress());
-
-		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		commandList->IASetVertexBuffers(0, 1, &vbView);
-		commandList->IASetIndexBuffer(&ibView);
-
-		commandList->SetDescriptorHeaps(1, &materialHeap);
-		commandList->SetGraphicsRootDescriptorTable(1, skyboxHandle->HandleGPU);
-
-		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
-	}
-
-
-	
-}
 
 void Scene::ProcessMouseMovement(int xOffset, int yOffset)
 {

@@ -17,8 +17,8 @@ float4 main(VSOutput input) : SV_TARGET
     float3 irradiance = float3(0, 0, 0);
 
     float3 up = float3(0.0, 1.0, 0.0);
-    float3 right = normalize(cross(normal, up));
-    up = normalize(cross(right, normal));
+    float3 right = normalize(cross(up, normal));
+    up = normalize(cross(normal, right));
 
     float sampleDelta = 0.025;
     float nrSamples = 0.0;
@@ -41,6 +41,6 @@ float4 main(VSOutput input) : SV_TARGET
 
 
     irradiance = 3.14159265359 * irradiance * (1.0 / max(nrSamples, 1.0));
-   //irradiance = float3(1.0, 0.0, 0.0);   // this will output red
-    return float4(irradiance, 1.0);
+   // irradiance = float3(1.0, 0.0, 0.0);   // this will output red
+    return float4(normal * 0.5 + 0.5, 1.0);
 }
