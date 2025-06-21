@@ -136,7 +136,7 @@ void Scene::RenderIrradianceMap()
 		printf("スカイボックス用パイプラインステートの生成に失敗");
 	}
 
-	XMMATRIX captureProjection = XMMatrixPerspectiveFovRH(XMConvertToRadians(90.0f), 1.0f, 0.1f, 10.0f);
+	XMMATRIX captureProjection = XMMatrixPerspectiveFovRH(XMConvertToRadians(90.0f), 1.0f, 0.1f, 1000.0f);
 
 	XMMATRIX captureViews[] =
 	{
@@ -144,14 +144,14 @@ void Scene::RenderIrradianceMap()
 		XMMatrixLookAtRH(
 			XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f), // Eye position
 			XMVectorSet(1.0f, 0.0f, 0.0f, 1.0f), // Look-at target
-			XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f) // Up direction
+			XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f) // Up direction
 		),
 
 			// -X 方向
 			XMMatrixLookAtRH(
 				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
 				XMVectorSet(-1.0f, 0.0f, 0.0f, 1.0f),
-				XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
+				XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
 			),
 
 			// +Y 方向
@@ -165,21 +165,21 @@ void Scene::RenderIrradianceMap()
 			XMMatrixLookAtRH(
 				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
 				XMVectorSet(0.0f, -1.0f, 0.0f, 1.0f),
-				XMVectorSet(0.0f, 0.0f, -1.0f, 0.0f)
+				XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f)
 			),
 
 			// +Z 方向
 			XMMatrixLookAtRH(
 				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
 				XMVectorSet(0.0f, 0.0f, 1.0f, 1.0f),
-				XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
+				XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
 			),
 
 			// -Z 方向
 			XMMatrixLookAtRH(
 				XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f),
 				XMVectorSet(0.0f, 0.0f, -1.0f, 1.0f),
-				XMVectorSet(0.0f, -1.0f, 0.0f, 0.0f)
+				XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
 			)
 	};
 
@@ -258,7 +258,7 @@ void Scene::RenderIrradianceMap()
 		commandList->SetDescriptorHeaps(1, &materialHeap);
 		commandList->SetGraphicsRootDescriptorTable(1, skyboxHandle->HandleGPU);
 
-		commandList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+		commandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
 		barrier = CD3DX12_RESOURCE_BARRIER::Transition(
 			IrradianceMap.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12CalcSubresource(0, face, 0, 1, 6));
@@ -573,12 +573,12 @@ void Scene::Draw()
 	auto commandList = g_Engine->CommandList();
 	auto materialHeap = descriptorHeap->Get();
 
-	if (g_Engine->FrameCount() == 0)
+	/*if (g_Engine->FrameCount() == 0)
 	{
 		printf("イラディアンスマップを登録します\n");
 		auto irradiance = Texture2D::Get(IrradianceMap.Get());
 		skyboxHandle = descriptorHeap->Register(irradiance);
-	}
+	}*/
 	auto vbView = skyboxVertexBuffer->View();
 	auto ibView = skyboxIndexBuffer->View();
 

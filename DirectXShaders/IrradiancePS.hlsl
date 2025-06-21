@@ -42,5 +42,5 @@ float4 main(VSOutput input) : SV_TARGET
 
     irradiance = 3.14159265359 * irradiance * (1.0 / max(nrSamples, 1.0));
    // irradiance = float3(1.0, 0.0, 0.0);   // this will output red
-    return float4(normal * 0.5 + 0.5, 1.0);
+    return float4(irradiance, 1.0);
 }
