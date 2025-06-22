@@ -138,6 +138,7 @@ void Scene::RenderIrradianceMap()
 
 	XMMATRIX captureProjection = XMMatrixPerspectiveFovRH(XMConvertToRadians(90.0f), 1.0f, 0.1f, 1000.0f);
 
+	// カメラを中心に置き、スカイボックスの各面をキャプチャする
 	XMMATRIX captureViews[] =
 	{
 		// +X 方向
@@ -219,14 +220,6 @@ void Scene::RenderIrradianceMap()
 		auto commandList = g_Engine->CommandList();
 		
 		auto materialHeap = descriptorHeap->Get();
-
-		// D3D12_RESOURCE_BARRIER barrier = {};
-		//barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		//barrier.Transition.pResource = IrradianceMap.Get();
-		//barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE; // 直前の状態に応じて
-		//barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		//barrier.Transition.Subresource = D3D12CalcSubresource(0, face, 0, 1, 6);
-		//commandList->ResourceBarrier(1, &barrier);
 
 		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(
 			IrradianceMap.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12CalcSubresource(0, face, 0, 1, 6));
