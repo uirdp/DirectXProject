@@ -4,6 +4,7 @@
 class Scene
 {
 public:
+	bool InitSkyboxAndIrradianceMap();
 	bool Init();
 
 	void Update();

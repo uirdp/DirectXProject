@@ -24,6 +24,7 @@ cbuffer SceneData : register(b1)
 
 SamplerState smp : register(s0);
 Texture2D _MainTex : register(t0);
+TextureCube _CubeMap : register(t1);
 
 inline float3 FresnelSchlick(float cosTheta, float3 F0)
 {
@@ -69,8 +70,9 @@ float4 main(VSOutput input) : SV_TARGET
 {
     float roughness = 0.5;
     float metallic = 0.5;
-    float3 albedo = (0.2, 0.5, 0.3);
-    
+
+    float3 albedo = _MainTex.Sample(smp, input.uv);
+
     float3 N = normalize(input.normal);
     float3 V = normalize(CameraPosition - input.pos.xyz);
     
@@ -100,12 +102,22 @@ float4 main(VSOutput input) : SV_TARGET
         float NdotL = saturate(dot(N, L));
         Lo += (Kd * albedo / PI + specular) * NdotL;
     }
+
+    float3 F = FresnelSchlick(saturate(dot(N, V)), F0);
+
+    float3 Ks = F;
+    float3 Kd = float3(1.0, 1.0, 1.0) - Ks;
+    Kd *= 1.0 - metallic;
+
+    float3 irradiance = _CubeMap.Sample(smp, N).rgb;
+    float3 diffuse =  albedo * irradiance;
+    float3 ambient = (Kd * diffuse);
     
-    float3 color = Lo * _MainTex.Sample(smp, input.uv);
+    float3 color = Lo * albedo + ambient;
     color = color / (color + float3(1.0, 1.0, 1.0));
     color = pow(color, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
     
-    // color = N * 0.5 + 0.5;
+    //scolor = N * 0.5 + 0.5;
     
     return float4(color, 1.0);
 

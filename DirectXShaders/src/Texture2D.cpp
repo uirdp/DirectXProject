@@ -83,7 +83,7 @@ bool Texture2D::Load(std::wstring& path)
 
 	if (FAILED(hr))
 	{
-		printf("テクスチャの読み込みに失敗\n");
+		printf("Texture2D:::テクスチャの読み込みに失敗\n");
 		return false;
 	}
 
@@ -108,7 +108,7 @@ bool Texture2D::Load(std::wstring& path)
 
 	if (FAILED(hr))
 	{
-		printf("テクスチャのリソース作成に失敗aa\n");
+		printf("Texture2D:::テクスチャのリソース作成に失敗\n");
 		return false;
 	}
 
@@ -145,7 +145,7 @@ bool Texture2D::Load(std::wstring& path)
 
 	if (FAILED(hr))
 	{
-		printf("テクスチャのリソース書き込みに失敗\n");
+		printf("Texture2D:::テクスチャのリソース書き込みに失敗\n");
 		return false;
 	}
 
@@ -190,7 +190,7 @@ Texture2D* Texture2D::GetWhite()
 	auto hr = buff->WriteToSubresource(0, nullptr, data.data(), 4 * 4, data.size());
 	if (FAILED(hr))
 	{
-		printf("テクスチャのリソース書き込みに失敗\n");
+		printf("Texture2D:::テクスチャのリソース書き込みに失敗\n");
 		return nullptr;
 	}
 
@@ -214,7 +214,7 @@ ID3D12Resource* Texture2D::GetDefaultResource(size_t width, size_t height)
 
 	if (FAILED(hr))
 	{
-		printf("テクスチャのリソース作成に失敗\n");
+		printf("Texture2D:::テクスチャのリソース作成に失敗\n");
 		assert(SUCCEEDED(hr));
 		return nullptr;
 	}
