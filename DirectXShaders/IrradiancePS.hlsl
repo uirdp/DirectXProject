@@ -7,9 +7,8 @@ struct VSOutput
 TextureCube _CubeMap : register(t0);
 SamplerState smp : register(s0);
 
-// 定数を使うとなぜか上手くいかない・・・
-// const float PI = 3.14159265359;
-const float PI = 3.14;
+
+static const float PI = 3.14159265359;
 
 float4 main(VSOutput input) : SV_TARGET
 {
@@ -23,8 +22,8 @@ float4 main(VSOutput input) : SV_TARGET
     float sampleDelta = 0.025;
     float nrSamples = 0.0;
 
-    float phi_sample = 2 * 3.14159265359;
-    float theta_sample = 0.5 * 3.14159265359;
+    float phi_sample = 2 * PI;
+    float theta_sample = 0.5 * PI;
     [loop]
     for (float phi = 0.0; phi < phi_sample; phi += sampleDelta)
     {
@@ -40,7 +39,7 @@ float4 main(VSOutput input) : SV_TARGET
     }
 
 
-    irradiance = 3.14159265359 * irradiance * (1.0 / max(nrSamples, 1.0));
+    irradiance = PI * irradiance * (1.0 / max(nrSamples, 1.0));
    // irradiance = float3(1.0, 0.0, 0.0);   // this will output red
     return float4(irradiance, 1.0);
 }
