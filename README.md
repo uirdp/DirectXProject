@@ -1,1 +1,2 @@
-# DirectXShaders
+# DirectXPBRRenderer
+低レイヤーグラフィックスAPIを学ぶために作成した、DX12のPBRレンダラーです
